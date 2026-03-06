@@ -8,6 +8,10 @@
 #this script will report the aws resource usage
 ########################
 
+echo "========================================"
+echo "REPORT GENERATED ON: $(date '+%Y-%m-%d %H:%M:%S')"
+echo "========================================"
+
 set -x
 
 
