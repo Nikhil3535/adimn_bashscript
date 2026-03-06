@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# create a folder
+mkdir nikhil
+
+# my first automation script for creating 2 file
+cd nikhil
+touch file-1 file-2
