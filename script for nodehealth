@@ -1,0 +1,21 @@
+#!/bin/bash
+
+###########################
+# author: nikhil
+# date : 6 march
+#
+# this script output the node health
+#
+# version: v1
+###########################
+set -x #debug mode
+set -e #exit script when error
+set -o #pipefail
+
+df -h
+
+free -g
+
+nproc
+
+ps -ef | grep systemd |awk -F" " '{print $2}'
