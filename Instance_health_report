@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# --- 1. SETTINGS ---
+INSTANCE_ID="i-0xxxxxxxxxxxx"
+REGION="us-east-1"  # Make sure this matches your instance region
+SENDER="your-verified@email.com"
+MANAGER="manager@email.com"
+
+echo "Step 1: Sending commands to EC2: $INSTANCE_ID..."
+
+# --- 2. GATHERING DATA REMOTELY (The Secret Sauce) ---
+# We use 'aws ssm send-command' to run the commands INSIDE the instance.
+CMD_ID=$(aws ssm send-command \
+    --document-name "AWS-RunShellScript" \
+    --instance-ids "$INSTANCE_ID" \
+    --region "$REGION" \
+    --parameters 'commands=[
+        "echo CPU: $(top -bn1 | grep \"Cpu(s)\" | awk \"{print 100 - \$8}\")%",
+        "echo RAM: $(free -h | awk \"/Mem:/ {print \$3 \\\"/\\\" \$2}\")",
+        "echo --- TOP PROCESSES ---",
+        "ps -eo pid,%cpu,comm --sort=-%cpu | head -n 4"
+    ]' \
+    --query "Command.CommandId" --output text)
+
+# Wait 5 seconds for the EC2 to process the command and return the result
+echo "Waiting for EC2 to respond..."
+sleep 5
+
+# Capture the output from the cloud
+STATS=$(aws ssm get-command-invocation \
+    --command-id "$CMD_ID" \
+    --instance-id "$INSTANCE_ID" \
+    --region "$REGION" \
+    --query "StandardOutputContent" --output text)
+
+# --- 3. CREATING THE EMAIL BODY ---
+EMAIL_CONTENT="
+EC2 REMOTE HEALTH REPORT
+------------------------
+Instance: $INSTANCE_ID
+Date:     $(date)
+
+$STATS
+
+------------------------
+Generated from Local Terminal.
+"
+
+# --- 4. SENDING THE EMAIL ---
+echo "Step 2: Sending the email via AWS SES..."
+aws ses send-email \
+    --from "$SENDER" \
+    --destination "ToAddresses=$MANAGER" \
+    --message "Subject={Data=Remote EC2 Report},Body={Text={Data=$EMAIL_CONTENT}}" \
+    --region "$REGION"
+
+echo "Done! Report sent."
